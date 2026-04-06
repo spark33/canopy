@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentOps — Task Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600&family=Source+Serif+4:ital,wght@0,400;0,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F4F0;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.15);
+  --text: #1A1A18;
+  --text-secondary: #6B6A65;
+  --text-tertiary: #9C9A92;
+  --accent: #534AB7;
+  --accent-bg: #EEEDFE;
+  --accent-text: #3C3489;
+  --teal: #0F6E56;
+  --teal-bg: #E1F5EE;
+  --teal-text: #085041;
+  --amber: #854F0B;
+  --amber-bg: #FAEEDA;
+  --amber-text: #633806;
+  --red: #A32D2D;
+  --red-bg: #FCEBEB;
+  --green: #3B6D11;
+  --green-bg: #EAF3DE;
+  --green-text: #27500A;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, serif;
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 10;
+}
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.logo { font-size: 14px; font-weight: 600; letter-spacing: -0.3px; color: var(--accent); }
+.task-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.task-meta { font-size: 12px; color: var(--text-tertiary); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-right .mode-badge {
+  font-size: 11px; padding: 4px 10px; border-radius: 20px;
+  background: var(--accent-bg); color: var(--accent-text); font-weight: 500;
+}
+.topbar-right .status-badge {
+  font-size: 11px; padding: 4px 10px; border-radius: 20px;
+  background: var(--amber-bg); color: var(--amber-text); font-weight: 500;
+}
+
+/* Main layout */
+.main { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 49px); }
+
+/* Left: Plan panel */
+.plan-panel {
+  border-right: 1px solid var(--border); background: var(--surface);
+  padding: 20px; overflow-y: auto;
+}
+.panel-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
+
+.plan-step {
+  display: flex; gap: 12px; padding: 10px 12px; border-radius: 10px;
+  margin-bottom: 4px; cursor: pointer; transition: background 0.15s;
+}
+.plan-step:hover { background: var(--surface-alt); }
+.plan-step.active { background: var(--accent-bg); }
+
+.step-indicator {
+  width: 24px; height: 24px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 11px;
+  font-weight: 600; flex-shrink: 0; margin-top: 1px;
+}
+.step-indicator.done { background: var(--green-bg); color: var(--green-text); }
+.step-indicator.running { background: var(--amber-bg); color: var(--amber-text); }
+.step-indicator.pending { background: var(--surface-alt); color: var(--text-tertiary); }
+.step-indicator.blocked { background: var(--red-bg); color: var(--red); }
+
+.step-content { flex: 1; }
+.step-title { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; }
+.step-agent { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.step-time { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+.plan-connector {
+  width: 1px; height: 12px; background: var(--border-strong);
+  margin-left: 31px; margin-bottom: 4px;
+}
+
+/* Right: Workspace */
+.workspace { padding: 24px 28px; overflow-y: auto; }
+
+.workspace-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+.workspace-title { font-size: 18px; font-weight: 500; }
+
+/* Stats row */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px;
+}
+.stat-label { font-size: 11px; color: var(--text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+.stat-value { font-size: 22px; font-weight: 500; margin-top: 4px; color: var(--text); }
+.stat-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* Agent cards grid */
+.agents-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+
+.agent-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px; transition: border-color 0.15s;
+  cursor: pointer;
+}
+.agent-card:hover { border-color: var(--border-strong); }
+.agent-card.checkpoint { border-color: #EF9F27; border-width: 1.5px; }
+
+.agent-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.agent-dot { width: 8px; height: 8px; border-radius: 50%; }
+.agent-name { font-size: 13px; font-weight: 500; }
+.agent-status {
+  font-size: 11px; margin-left: auto; padding: 2px 8px;
+  border-radius: 12px; font-weight: 500;
+}
+.agent-status.done { background: var(--green-bg); color: var(--green-text); }
+.agent-status.running { background: var(--amber-bg); color: var(--amber-text); }
+.agent-status.blocked { background: var(--red-bg); color: var(--red); }
+
+.agent-output {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.agent-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-tertiary); }
+.agent-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* Checkpoint card */
+.checkpoint-content { margin-top: 12px; }
+.checkpoint-label {
+  font-size: 11px; font-weight: 600; color: var(--amber);
+  text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.checkpoint-desc { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 14px; }
+.checkpoint-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.checkpoint-actions button {
+  font-size: 12px; font-family: var(--font); padding: 7px 16px;
+  border-radius: 8px; cursor: pointer; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font-weight: 500;
+  transition: all 0.12s;
+}
+.checkpoint-actions button:hover { background: var(--surface-alt); }
+.checkpoint-actions button.primary {
+  background: var(--text); color: var(--surface); border-color: var(--text);
+}
+.checkpoint-actions button.primary:hover { opacity: 0.88; }
+
+/* Orchestrator section */
+.orch-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+}
+.orch-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.orch-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.orch-name { font-size: 13px; font-weight: 500; color: var(--accent-text); }
+.orch-reasoning {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  padding: 12px 14px; background: var(--accent-bg); border-radius: 10px;
+  margin-top: 8px;
+}
+
+/* Input bar */
+.input-section {
+  position: sticky; bottom: 0; padding: 16px 28px;
+  background: linear-gradient(transparent, var(--bg) 20%);
+}
+.input-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 6px 6px 6px 18px;
+  max-width: 700px;
+}
+.input-bar input {
+  flex: 1; border: none; outline: none; font-size: 14px;
+  font-family: var(--font); color: var(--text); background: transparent;
+}
+.input-bar input::placeholder { color: var(--text-tertiary); }
+.input-send {
+  width: 36px; height: 36px; border-radius: 10px; border: none;
+  background: var(--text); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: opacity 0.12s;
+}
+.input-send:hover { opacity: 0.8; }
+.input-send svg { width: 16px; height: 16px; }
+
+/* Section labels */
+.section-label {
+  font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;
+}
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.pulsing { animation: pulse 1.8s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">AgentOps</span>
+    <span style="color:var(--border-strong)">|</span>
+    <div>
+      <div class="task-title">Competitive analysis: AI code editors</div>
+      <div class="task-meta">Run #47 &middot; Started 3m ago</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="mode-badge">Adaptive mode</span>
+    <span class="status-badge">Awaiting input</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Left: Plan -->
+  <div class="plan-panel">
+    <div class="panel-label">Execution plan</div>
+
+    <div class="plan-step">
+      <div class="step-indicator done">&#10003;</div>
+      <div class="step-content">
+        <div class="step-title">Research Cursor</div>
+        <div class="step-agent">Researcher agent</div>
+        <div class="step-time">38s &middot; 1,240 tokens</div>
+      </div>
+    </div>
+    <div class="plan-connector"></div>
+
+    <div class="plan-step">
+      <div class="step-indicator done">&#10003;</div>
+      <div class="step-content">
+        <div class="step-title">Research Windsurf</div>
+        <div class="step-agent">Researcher agent</div>
+        <div class="step-time">42s &middot; 980 tokens</div>
+      </div>
+    </div>
+    <div class="plan-connector"></div>
+
+    <div class="plan-step active">
+      <div class="step-indicator blocked">!</div>
+      <div class="step-content">
+        <div class="step-title">Resolve data conflict</div>
+        <div class="step-agent">Checkpoint &middot; User input needed</div>
+      </div>
+    </div>
+    <div class="plan-connector"></div>
+
+    <div class="plan-step">
+      <div class="step-indicator running"><span class="pulsing">&bull;</span></div>
+      <div class="step-content">
+        <div class="step-title">Research GitHub Copilot</div>
+        <div class="step-agent">Researcher agent</div>
+        <div class="step-time">Running...</div>
+      </div>
+    </div>
+    <div class="plan-connector"></div>
+
+    <div class="plan-step">
+      <div class="step-indicator pending">&mdash;</div>
+      <div class="step-content">
+        <div class="step-title">Cross-reference pricing</div>
+        <div class="step-agent">Fact checker agent</div>
+      </div>
+    </div>
+    <div class="plan-connector"></div>
+
+    <div class="plan-step">
+      <div class="step-indicator pending">&mdash;</div>
+      <div class="step-content">
+        <div class="step-title">Synthesize briefing</div>
+        <div class="step-agent">Orchestrator</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <div class="panel-label">Orchestrator reasoning</div>
+      <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+        Steps 1 &amp; 2 completed with high confidence. Step 4 is running in parallel. Paused on step 3 because the Windsurf researcher returned conflicting acquisition data from two credible sources. Surfacing to user before proceeding.
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Workspace -->
+  <div class="workspace">
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Agents</div>
+        <div class="stat-value">3</div>
+        <div class="stat-sub">2 done, 1 running</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Steps</div>
+        <div class="stat-value">3 / 6</div>
+        <div class="stat-sub">1 blocked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tokens</div>
+        <div class="stat-value">4,220</div>
+        <div class="stat-sub">~$0.06</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Elapsed</div>
+        <div class="stat-value">3:22</div>
+        <div class="stat-sub">Est. 2m remaining</div>
+      </div>
+    </div>
+
+    <div class="section-label">Agent outputs</div>
+    <div class="agents-grid">
+
+      <div class="agent-card">
+        <div class="agent-top">
+          <div class="agent-dot" style="background: var(--teal);"></div>
+          <span class="agent-name">Researcher &middot; Cursor</span>
+          <span class="agent-status done">Done</span>
+        </div>
+        <div class="agent-output">
+          Cursor Pro is $20/mo, Business $40/seat/mo. Series B raised $400M at $2.5B valuation (Jan 2025). Key differentiator: tab-based inline completions and multi-file editing with full codebase context.
+        </div>
+        <div class="agent-meta">
+          <span>4 sources</span>
+          <span>38s</span>
+          <span>1,240 tok</span>
+        </div>
+      </div>
+
+      <div class="agent-card checkpoint">
+        <div class="agent-top">
+          <div class="agent-dot" style="background: var(--teal);"></div>
+          <span class="agent-name">Researcher &middot; Windsurf</span>
+          <span class="agent-status done">Done</span>
+        </div>
+        <div class="agent-output">
+          Free tier available, Pro $15/mo. Parent company is Codeium. Differentiator is "Cascade" multi-file editing flow.
+        </div>
+        <div class="checkpoint-content">
+          <div class="checkpoint-label">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Conflicting data
+          </div>
+          <div class="checkpoint-desc">Two credible sources disagree on whether OpenAI's $3B acquisition of Codeium has closed or is still pending FTC review.</div>
+          <div class="checkpoint-actions">
+            <button class="primary">Use "acquired"</button>
+            <button>Mark unconfirmed</button>
+            <button>Research deeper</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-top">
+          <div class="agent-dot" style="background: #EF9F27;"></div>
+          <span class="agent-name">Researcher &middot; Copilot</span>
+          <span class="agent-status running"><span class="pulsing">Running</span></span>
+        </div>
+        <div class="agent-output" style="color: var(--text-tertiary);">
+          Searching for current GitHub Copilot pricing tiers, enterprise features, and recent announcements...
+        </div>
+        <div class="agent-meta">
+          <span>2 sources so far</span>
+          <span class="pulsing">28s</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section-label" style="margin-top: 8px;">Orchestrator</div>
+    <div class="orch-section">
+      <div class="orch-header">
+        <div class="orch-dot"></div>
+        <span class="orch-name">Latest decision (0:44)</span>
+      </div>
+      <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+        Cursor research completed successfully &mdash; high confidence, no conflicts. Windsurf research completed but contains a data conflict that I can't resolve autonomously. Copilot research still running in parallel. Surfacing the Windsurf conflict as a checkpoint while Copilot finishes.
+      </div>
+      <div class="orch-reasoning">
+        <strong style="font-size: 12px; color: var(--accent-text);">Next action:</strong> Waiting for user decision on Windsurf acquisition status. Once resolved + Copilot completes → proceed to cross-referencing pricing data, then synthesize final briefing.
+      </div>
+    </div>
+
+    <div class="input-section" style="padding-left: 0; padding-right: 0; margin-top: 20px;">
+      <div class="input-bar">
+        <input type="text" placeholder="Tell the orchestrator something...">
+        <button class="input-send">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#FAFAF8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentOps — Document View</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600&family=Source+Serif+4:ital,wght@0,400;0,500;0,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F4F0;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.14);
+  --text: #1A1A18;
+  --text-secondary: #6B6A65;
+  --text-tertiary: #9C9A92;
+  --accent: #534AB7;
+  --accent-bg: #EEEDFE;
+  --accent-text: #3C3489;
+  --teal: #0F6E56;
+  --teal-bg: #E1F5EE;
+  --teal-text: #085041;
+  --amber: #854F0B;
+  --amber-bg: #FAEEDA;
+  --amber-text: #633806;
+  --red: #A32D2D;
+  --red-bg: #FCEBEB;
+  --green: #3B6D11;
+  --green-bg: #EAF3DE;
+  --green-text: #27500A;
+  --coral: #993C1D;
+  --coral-bg: #FAECE7;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --serif: 'Source Serif 4', Georgia, serif;
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Topbar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 10;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.logo { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: -0.3px; }
+.task-info { font-size: 12px; color: var(--text-tertiary); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.tbtn {
+  font-size: 11px; font-family: var(--font); padding: 5px 12px;
+  border-radius: 6px; border: 1px solid var(--border-strong);
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+  font-weight: 500; transition: all 0.12s;
+}
+.tbtn:hover { background: var(--surface-alt); }
+.badge {
+  font-size: 10px; padding: 3px 8px; border-radius: 10px; font-weight: 500;
+}
+.badge-amber { background: var(--amber-bg); color: var(--amber-text); }
+.badge-green { background: var(--green-bg); color: var(--green-text); }
+
+/* Main layout */
+.main { display: grid; grid-template-columns: 1fr 340px; min-height: calc(100vh - 42px); }
+
+/* Document area */
+.doc-area {
+  padding: 40px 60px; max-width: 800px; margin: 0 auto;
+  overflow-y: auto;
+}
+
+.doc-title {
+  font-family: var(--serif); font-size: 28px; font-weight: 600;
+  line-height: 1.3; margin-bottom: 8px; color: var(--text);
+}
+.doc-subtitle {
+  font-size: 14px; color: var(--text-tertiary); margin-bottom: 32px;
+  line-height: 1.5;
+}
+
+.doc-section { margin-bottom: 32px; }
+.doc-section-title {
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  margin-bottom: 12px; color: var(--text);
+}
+
+.doc-paragraph {
+  font-size: 15px; line-height: 1.75; color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+/* Inline source annotations */
+.source-ref {
+  display: inline; background: var(--teal-bg); color: var(--teal-text);
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+  cursor: pointer; vertical-align: super; margin-left: 2px;
+  transition: background 0.12s;
+}
+.source-ref:hover { background: #9FE1CB; }
+
+/* Conflicted section */
+.doc-conflict {
+  border-left: 3px solid #EF9F27; padding: 14px 18px; margin: 16px 0;
+  background: var(--amber-bg); border-radius: 0 10px 10px 0;
+}
+.conflict-label {
+  font-size: 11px; font-weight: 600; color: var(--amber);
+  text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.conflict-text { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 12px; }
+.conflict-actions { display: flex; gap: 8px; }
+.conflict-actions button {
+  font-size: 12px; font-family: var(--font); padding: 6px 14px;
+  border-radius: 8px; cursor: pointer; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font-weight: 500;
+  transition: all 0.12s;
+}
+.conflict-actions button:hover { background: var(--surface-alt); }
+.conflict-actions button.primary {
+  background: var(--text); color: var(--surface); border-color: transparent;
+}
+
+/* Pending section (skeleton) */
+.doc-pending {
+  padding: 20px 0;
+}
+.skeleton {
+  height: 14px; background: var(--surface-alt); border-radius: 6px;
+  margin-bottom: 10px;
+}
+.skeleton.w80 { width: 80%; }
+.skeleton.w60 { width: 60%; }
+.skeleton.w90 { width: 90%; }
+.skeleton.w40 { width: 40%; }
+.skeleton.title { height: 20px; width: 50%; margin-bottom: 16px; }
+
+/* Comparison table */
+.comp-table {
+  width: 100%; border-collapse: collapse; margin: 16px 0;
+  font-size: 13px;
+}
+.comp-table th {
+  text-align: left; padding: 10px 14px; font-weight: 500;
+  border-bottom: 2px solid var(--border-strong); font-size: 12px;
+  color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.3px;
+}
+.comp-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text-secondary); line-height: 1.5;
+}
+.comp-table td:first-child { font-weight: 500; color: var(--text); }
+.comp-table tr:last-child td { border-bottom: none; }
+
+/* Right sidebar: Activity */
+.activity-panel {
+  border-left: 1px solid var(--border); background: var(--surface);
+  padding: 16px; overflow-y: auto;
+}
+.panel-label {
+  font-size: 10px; font-weight: 600; color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;
+}
+
+/* Progress */
+.progress-bar { display: flex; gap: 3px; margin-bottom: 16px; }
+.progress-seg {
+  height: 4px; border-radius: 2px; flex: 1;
+}
+.progress-seg.done { background: var(--green); opacity: 0.6; }
+.progress-seg.active { background: var(--amber); }
+.progress-seg.pending { background: var(--surface-alt); }
+
+.progress-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 20px; }
+
+/* Activity events */
+.activity-event {
+  display: flex; gap: 10px; padding-bottom: 14px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.activity-event:last-child { border-bottom: none; }
+.ae-dot {
+  width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
+}
+.ae-content { flex: 1; }
+.ae-title { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+.ae-desc { font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
+.ae-time { font-size: 10px; color: var(--text-tertiary); margin-top: 3px; }
+.ae-expand {
+  font-size: 11px; color: var(--accent); cursor: pointer; margin-top: 4px;
+  display: inline-block;
+}
+
+/* Sources panel */
+.sources-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.source-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px 0;
+  font-size: 12px;
+}
+.source-num {
+  width: 18px; height: 18px; border-radius: 50%; background: var(--teal-bg);
+  color: var(--teal-text); display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; flex-shrink: 0;
+}
+.source-title { color: var(--text); font-weight: 500; line-height: 1.4; }
+.source-url { color: var(--text-tertiary); font-size: 11px; }
+
+/* Input bar */
+.input-bar-wrap {
+  padding: 12px; border-top: 1px solid var(--border);
+}
+.input-bar {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border-strong); border-radius: 10px;
+  padding: 4px 4px 4px 14px; background: var(--surface);
+}
+.input-bar input {
+  flex: 1; border: none; outline: none; font-size: 12px;
+  font-family: var(--font); color: var(--text); background: transparent;
+}
+.input-bar input::placeholder { color: var(--text-tertiary); }
+.send-btn {
+  width: 28px; height: 28px; border-radius: 8px; border: none;
+  background: var(--text); cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+}
+.send-btn svg { width: 12px; height: 12px; }
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-alt) 25%, #EDECE6 50%, var(--surface-alt) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">AgentOps</span>
+    <span style="color:var(--border-strong); margin: 0 4px;">|</span>
+    <span class="task-info">Run #47 &middot; Competitive analysis &middot; 3:22 elapsed</span>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-amber">Awaiting input</span>
+    <button class="tbtn">Export</button>
+    <button class="tbtn">Trace</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Document -->
+  <div class="doc-area">
+
+    <div class="doc-title">AI code editor landscape: competitive analysis</div>
+    <div class="doc-subtitle">
+      A comparative briefing on Cursor, Windsurf, and GitHub Copilot &mdash; covering pricing, product differentiation, and market positioning.
+      <br><span style="font-size: 12px; color: var(--text-tertiary);">Draft &middot; 2 of 3 sections complete &middot; auto-updating as agents finish</span>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-section-title">1. Cursor</div>
+      <div class="doc-paragraph">
+        Cursor has emerged as the leading AI-native code editor, built as a fork of VS Code with deep AI integration throughout the editing experience.<span class="source-ref" title="Cursor official site">1</span> The product offers two paid tiers: Pro at $20/month for individual developers and Business at $40/seat/month for teams, both including unlimited AI completions and access to multiple foundation models.<span class="source-ref" title="Cursor pricing page">2</span>
+      </div>
+      <div class="doc-paragraph">
+        In January 2025, Cursor's parent company Anysphere raised a $400M Series B at a $2.5B valuation, making it one of the most highly-valued developer tools startups.<span class="source-ref" title="TechCrunch">3</span> The company's key differentiator is its tab-based inline completion system and multi-file editing capability that leverages full codebase context, enabling developers to accept AI suggestions with a single keystroke across multiple files simultaneously.<span class="source-ref" title="Cursor changelog">4</span>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-section-title">2. Windsurf</div>
+      <div class="doc-paragraph">
+        Windsurf, developed by Codeium, positions itself as a more accessible alternative with a free tier and Pro pricing at $15/month.<span class="source-ref" title="Windsurf pricing">5</span> Its primary differentiator is "Cascade," a multi-file editing flow that allows developers to describe changes in natural language and have the AI apply them across an entire codebase.<span class="source-ref" title="Windsurf docs">6</span>
+      </div>
+
+      <div class="doc-conflict">
+        <div class="conflict-label">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Conflicting data &mdash; needs your input
+        </div>
+        <div class="conflict-text">
+          The research agent found contradicting information about Codeium's acquisition status. A TechCrunch article (Mar 15) reports OpenAI completed a $3B acquisition, while a more recent Verge article (Mar 28) states the deal is still under FTC review. This affects how Windsurf's market positioning should be framed.
+        </div>
+        <div class="conflict-actions">
+          <button class="primary">Use "acquired" framing</button>
+          <button>Mark as unconfirmed</button>
+          <button>Research deeper</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-section-title" style="color: var(--text-tertiary);">3. GitHub Copilot</div>
+      <div class="doc-pending">
+        <div class="skeleton title"></div>
+        <div class="skeleton w90"></div>
+        <div class="skeleton w80"></div>
+        <div class="skeleton w60"></div>
+        <div style="height: 14px;"></div>
+        <div class="skeleton w80"></div>
+        <div class="skeleton w90"></div>
+        <div class="skeleton w40"></div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-tertiary); font-style: italic;">
+        Researcher agent is still gathering data on GitHub Copilot. This section will populate when complete.
+      </div>
+    </div>
+
+    <div class="doc-section" style="opacity: 0.4;">
+      <div class="doc-section-title" style="color: var(--text-tertiary);">4. Comparative summary</div>
+
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Cursor</th>
+            <th>Windsurf</th>
+            <th>Copilot</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Price (Pro)</td>
+            <td>$20/mo</td>
+            <td>$15/mo</td>
+            <td style="color:var(--text-tertiary);">&mdash;</td>
+          </tr>
+          <tr>
+            <td>Free tier</td>
+            <td style="color:var(--text-tertiary);">Limited</td>
+            <td>Yes</td>
+            <td style="color:var(--text-tertiary);">&mdash;</td>
+          </tr>
+          <tr>
+            <td>Differentiator</td>
+            <td>Tab completions</td>
+            <td>Cascade flow</td>
+            <td style="color:var(--text-tertiary);">&mdash;</td>
+          </tr>
+          <tr>
+            <td>Funding</td>
+            <td>$400M / $2.5B</td>
+            <td style="color:var(--text-tertiary);">TBD</td>
+            <td style="color:var(--text-tertiary);">&mdash;</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="font-size: 12px; color: var(--text-tertiary); font-style: italic; margin-top: 12px;">
+        This table will be completed after all research agents finish and data is cross-referenced.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Activity sidebar -->
+  <div class="activity-panel">
+    <div class="panel-label">Progress</div>
+    <div class="progress-bar">
+      <div class="progress-seg done"></div>
+      <div class="progress-seg done"></div>
+      <div class="progress-seg active"></div>
+      <div class="progress-seg active"></div>
+      <div class="progress-seg pending"></div>
+      <div class="progress-seg pending"></div>
+    </div>
+    <div class="progress-label">3 of 6 steps &middot; 1 needs input</div>
+
+    <div class="panel-label">Activity</div>
+
+    <div class="activity-event">
+      <div class="ae-dot" style="background: #EF9F27;"></div>
+      <div class="ae-content">
+        <div class="ae-title">Checkpoint: conflicting data</div>
+        <div class="ae-desc">Windsurf acquisition status has two credible but contradicting sources.</div>
+        <div class="ae-time">0:44 &middot; Awaiting input</div>
+      </div>
+    </div>
+
+    <div class="activity-event">
+      <div class="ae-dot" style="background: var(--teal);"></div>
+      <div class="ae-content">
+        <div class="ae-title">Copilot research running</div>
+        <div class="ae-desc">Found 2 sources so far, searching for enterprise pricing details.</div>
+        <div class="ae-time">0:28 &middot; In progress</div>
+      </div>
+    </div>
+
+    <div class="activity-event">
+      <div class="ae-dot" style="background: var(--accent);"></div>
+      <div class="ae-content">
+        <div class="ae-title">Orchestrator: section 1 written</div>
+        <div class="ae-desc">Cursor research complete and synthesized into document. High confidence, no checkpoint needed.</div>
+        <div class="ae-time">0:41</div>
+        <span class="ae-expand">View reasoning</span>
+      </div>
+    </div>
+
+    <div class="activity-event">
+      <div class="ae-dot" style="background: var(--teal);"></div>
+      <div class="ae-content">
+        <div class="ae-title">Windsurf research done</div>
+        <div class="ae-desc">3 sources found. Section partially written, blocked on acquisition conflict.</div>
+        <div class="ae-time">0:42 &middot; 980 tokens</div>
+      </div>
+    </div>
+
+    <div class="activity-event">
+      <div class="ae-dot" style="background: var(--teal);"></div>
+      <div class="ae-content">
+        <div class="ae-title">Cursor research done</div>
+        <div class="ae-desc">4 sources collected. Pricing, funding, and product differentiation confirmed.</div>
+        <div class="ae-time">0:38 &middot; 1,240 tokens</div>
+      </div>
+    </div>
+
+    <div class="activity-event">
+      <div class="ae-dot" style="background: var(--accent);"></div>
+      <div class="ae-content">
+        <div class="ae-title">Orchestrator: plan created</div>
+        <div class="ae-desc">3 parallel research tasks, 1 cross-reference step, 1 synthesis step.</div>
+        <div class="ae-time">0:00</div>
+      </div>
+    </div>
+
+    <div class="sources-section">
+      <div class="panel-label">Sources collected</div>
+      <div class="source-item">
+        <div class="source-num">1</div>
+        <div><div class="source-title">Cursor &mdash; Official site</div><div class="source-url">cursor.com</div></div>
+      </div>
+      <div class="source-item">
+        <div class="source-num">2</div>
+        <div><div class="source-title">Cursor pricing</div><div class="source-url">cursor.com/pricing</div></div>
+      </div>
+      <div class="source-item">
+        <div class="source-num">3</div>
+        <div><div class="source-title">Anysphere Series B</div><div class="source-url">techcrunch.com</div></div>
+      </div>
+      <div class="source-item">
+        <div class="source-num">4</div>
+        <div><div class="source-title">Cursor changelog</div><div class="source-url">cursor.com/changelog</div></div>
+      </div>
+      <div class="source-item">
+        <div class="source-num">5</div>
+        <div><div class="source-title">Windsurf pricing</div><div class="source-url">windsurf.com/pricing</div></div>
+      </div>
+      <div class="source-item">
+        <div class="source-num">6</div>
+        <div><div class="source-title">Windsurf documentation</div><div class="source-url">docs.windsurf.com</div></div>
+      </div>
+    </div>
+
+    <div class="input-bar-wrap">
+      <div class="input-bar">
+        <input type="text" placeholder="Tell the orchestrator...">
+        <button class="send-btn">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#FAFAF8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentOps — Canvas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #1A1A1E;
+  --surface: #242428;
+  --surface-hover: #2E2E33;
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+  --text: #E8E8E4;
+  --text-secondary: #9C9A92;
+  --text-tertiary: #6B6A65;
+  --accent: #AFA9EC;
+  --accent-dim: rgba(175,169,236,0.12);
+  --teal: #5DCAA5;
+  --teal-dim: rgba(93,202,165,0.12);
+  --amber: #EF9F27;
+  --amber-dim: rgba(239,159,39,0.12);
+  --red: #F09595;
+  --red-dim: rgba(240,149,149,0.1);
+  --green: #97C459;
+  --green-dim: rgba(151,196,89,0.12);
+  --grid-color: rgba(255,255,255,0.03);
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; overflow: hidden; }
+
+/* Topbar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: relative; z-index: 10;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.logo { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: -0.3px; }
+.sep { color: var(--border-strong); font-size: 18px; }
+.run-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.run-meta { font-size: 11px; color: var(--text-tertiary); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.tbtn {
+  font-size: 11px; font-family: var(--font); padding: 5px 12px;
+  border-radius: 6px; border: 1px solid var(--border-strong);
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+  font-weight: 500; transition: all 0.12s;
+}
+.tbtn:hover { background: var(--surface-hover); color: var(--text); }
+.tbtn.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(175,169,236,0.2); }
+.badge {
+  font-size: 10px; padding: 3px 8px; border-radius: 10px;
+  font-weight: 500;
+}
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+
+/* Canvas */
+.canvas {
+  position: relative; width: 100%; height: calc(100vh - 45px);
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+  overflow: hidden;
+}
+
+/* Nodes */
+.node {
+  position: absolute; background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 16px 18px; min-width: 200px; max-width: 260px;
+  cursor: default; transition: border-color 0.15s;
+}
+.node:hover { border-color: rgba(255,255,255,0.2); }
+
+.node-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.node-dot { width: 8px; height: 8px; border-radius: 50%; }
+.node-type { font-size: 10px; font-family: var(--mono); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; }
+.node-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+.node-body { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.node-footer { display: flex; gap: 12px; margin-top: 10px; font-size: 10px; font-family: var(--mono); color: var(--text-tertiary); }
+
+.node.checkpoint { border-color: var(--amber); border-width: 1.5px; }
+.node.orchestrator { border-color: rgba(175,169,236,0.3); }
+
+/* Checkpoint actions inside node */
+.cp-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.cp-actions button {
+  font-size: 11px; font-family: var(--font); padding: 6px 14px;
+  border-radius: 8px; cursor: pointer; border: 1px solid var(--border-strong);
+  background: transparent; color: var(--text); font-weight: 500;
+  transition: all 0.12s;
+}
+.cp-actions button:hover { background: var(--surface-hover); }
+.cp-actions button.primary { background: var(--text); color: var(--bg); border-color: transparent; }
+.cp-actions button.primary:hover { opacity: 0.85; }
+
+/* Edges (SVG) */
+.edges { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* Inspector panel (right) */
+.inspector {
+  position: absolute; top: 12px; right: 12px; width: 320px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 18px; max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+.insp-label { font-size: 10px; font-family: var(--mono); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.insp-title { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+.insp-section { margin-bottom: 14px; }
+.insp-section:last-child { margin-bottom: 0; }
+.code-block {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; font-family: var(--mono);
+  font-size: 11px; color: var(--text-secondary); line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Stats footer */
+.canvas-stats {
+  position: absolute; bottom: 12px; left: 12px;
+  display: flex; gap: 6px;
+}
+.canvas-stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 12px; font-size: 11px;
+  color: var(--text-secondary);
+}
+.canvas-stat strong { color: var(--text); font-weight: 500; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.pulsing { animation: pulse 1.8s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">AgentOps</span>
+    <span class="sep">|</span>
+    <div>
+      <span class="run-title">Competitive analysis: AI code editors</span>
+      <span class="run-meta">&nbsp;&middot; Run #47</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-amber">Awaiting input</span>
+    <button class="tbtn active">Canvas</button>
+    <button class="tbtn">Timeline</button>
+    <button class="tbtn">Output</button>
+  </div>
+</div>
+
+<div class="canvas">
+
+  <!-- SVG Edges -->
+  <svg class="edges" viewBox="0 0 1400 900" preserveAspectRatio="none">
+    <!-- Task → Orchestrator -->
+    <path d="M350 100 C350 160, 350 160, 350 185" stroke="rgba(175,169,236,0.35)" stroke-width="1.5" fill="none"/>
+    <circle cx="350" cy="185" r="3" fill="rgba(175,169,236,0.5)"/>
+
+    <!-- Orchestrator → Agents -->
+    <path d="M280 310 C200 370, 140 370, 140 395" stroke="rgba(93,202,165,0.3)" stroke-width="1.5" fill="none"/>
+    <circle cx="140" cy="395" r="3" fill="rgba(93,202,165,0.4)"/>
+
+    <path d="M350 310 C350 370, 400 370, 400 395" stroke="rgba(93,202,165,0.3)" stroke-width="1.5" fill="none"/>
+    <circle cx="400" cy="395" r="3" fill="rgba(93,202,165,0.4)"/>
+
+    <path d="M420 310 C500 370, 660 370, 660 395" stroke="rgba(93,202,165,0.3)" stroke-width="1.5" fill="none"/>
+    <circle cx="660" cy="395" r="3" fill="rgba(93,202,165,0.4)"/>
+
+    <!-- Agent B → Checkpoint -->
+    <path d="M400 530 C400 570, 400 570, 400 600" stroke="rgba(239,159,39,0.4)" stroke-width="1.5" fill="none"/>
+    <circle cx="400" cy="600" r="3" fill="rgba(239,159,39,0.5)"/>
+
+    <!-- Checkpoint → Pending steps (dashed) -->
+    <path d="M400 760 C400 800, 350 810, 350 830" stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none" stroke-dasharray="4 4"/>
+  </svg>
+
+  <!-- Task node -->
+  <div class="node" style="left: 240px; top: 40px; min-width: 220px;">
+    <div class="node-header">
+      <div class="node-dot" style="background: var(--text-secondary);"></div>
+      <span class="node-type">Task input</span>
+    </div>
+    <div class="node-title">Competitive analysis</div>
+    <div class="node-body">Research AI code editors: Cursor, Windsurf, GitHub Copilot. Pricing, differentiators, funding.</div>
+  </div>
+
+  <!-- Orchestrator node -->
+  <div class="node orchestrator" style="left: 220px; top: 195px; min-width: 260px;">
+    <div class="node-header">
+      <div class="node-dot" style="background: var(--accent);"></div>
+      <span class="node-type">Orchestrator</span>
+      <span style="margin-left: auto; font-size: 10px; color: var(--accent);">Cycle 4</span>
+    </div>
+    <div class="node-title">Plan &rarr; observe &rarr; replan</div>
+    <div class="node-body">3 parallel research tasks. Currently blocked on data conflict. Copilot research running independently.</div>
+    <div class="node-footer">
+      <span>4 cycles</span>
+      <span>2,100 tok</span>
+    </div>
+  </div>
+
+  <!-- Agent A: Cursor -->
+  <div class="node" style="left: 40px; top: 400px; min-width: 220px;">
+    <div class="node-header">
+      <div class="node-dot" style="background: var(--teal);"></div>
+      <span class="node-type">Researcher</span>
+      <span style="margin-left: auto; font-size: 10px; color: var(--green);">Done</span>
+    </div>
+    <div class="node-title">Cursor</div>
+    <div class="node-body">$20/mo Pro, $40 Business. $400M Series B at $2.5B. Tab completions + multi-file editing.</div>
+    <div class="node-footer">
+      <span>4 sources</span>
+      <span>38s</span>
+      <span>1,240 tok</span>
+    </div>
+  </div>
+
+  <!-- Agent B: Windsurf -->
+  <div class="node" style="left: 300px; top: 400px; min-width: 220px;">
+    <div class="node-header">
+      <div class="node-dot" style="background: var(--teal);"></div>
+      <span class="node-type">Researcher</span>
+      <span style="margin-left: auto; font-size: 10px; color: var(--amber);">Conflict</span>
+    </div>
+    <div class="node-title">Windsurf</div>
+    <div class="node-body">$15/mo Pro, free tier. Codeium parent co. "Cascade" multi-file editing. Acquisition status unclear.</div>
+    <div class="node-footer">
+      <span>3 sources</span>
+      <span>42s</span>
+      <span>980 tok</span>
+    </div>
+  </div>
+
+  <!-- Agent C: Copilot -->
+  <div class="node" style="left: 560px; top: 400px; min-width: 220px;">
+    <div class="node-header">
+      <div class="node-dot" style="background: var(--amber);"></div>
+      <span class="node-type">Researcher</span>
+      <span class="pulsing" style="margin-left: auto; font-size: 10px; color: var(--amber);">Running</span>
+    </div>
+    <div class="node-title">GitHub Copilot</div>
+    <div class="node-body" style="color: var(--text-tertiary);">Searching pricing tiers and enterprise features...</div>
+    <div class="node-footer">
+      <span>2 sources</span>
+      <span class="pulsing">28s</span>
+    </div>
+  </div>
+
+  <!-- Checkpoint node -->
+  <div class="node checkpoint" style="left: 280px; top: 600px; min-width: 260px;">
+    <div class="node-header">
+      <div class="node-dot" style="background: var(--amber);"></div>
+      <span class="node-type" style="color: var(--amber);">Checkpoint</span>
+    </div>
+    <div class="node-title">Conflicting acquisition data</div>
+    <div class="node-body">TechCrunch says acquisition closed. The Verge says pending FTC review. How to proceed?</div>
+    <div class="cp-actions">
+      <button class="primary">Use "acquired"</button>
+      <button>Mark unconfirmed</button>
+      <button>Dig deeper</button>
+    </div>
+  </div>
+
+  <!-- Inspector -->
+  <div class="inspector">
+    <div class="insp-label">Inspector &middot; Checkpoint</div>
+    <div class="insp-title">Windsurf acquisition conflict</div>
+
+    <div class="insp-section">
+      <div class="insp-label">Source A &middot; TechCrunch</div>
+      <div class="code-block">"OpenAI completed its acquisition of Codeium for $3B..."
+Published: Mar 15, 2026
+Confidence: High (primary source)</div>
+    </div>
+
+    <div class="insp-section">
+      <div class="insp-label">Source B &middot; The Verge</div>
+      <div class="code-block">"The proposed acquisition remains under FTC review..."
+Published: Mar 28, 2026
+Confidence: High (primary source)</div>
+    </div>
+
+    <div class="insp-section">
+      <div class="insp-label">Orchestrator reasoning</div>
+      <div class="code-block">{
+  "confidence": 0.3,
+  "reason": "Two primary sources in direct contradiction. Dates suggest Verge article is more recent.",
+  "action": "ask_user",
+  "suggested": "mark_unconfirmed"
+}</div>
+    </div>
+
+    <div class="insp-section">
+      <div class="insp-label">Trace events</div>
+      <div style="font-size: 11px; color: var(--text-tertiary); line-height: 1.8;">
+        <div><span style="color:var(--teal)">0:02</span> &nbsp;Agent spawned</div>
+        <div><span style="color:var(--teal)">0:04</span> &nbsp;web_search("Windsurf Codeium pricing")</div>
+        <div><span style="color:var(--teal)">0:12</span> &nbsp;web_fetch(techcrunch.com/...)</div>
+        <div><span style="color:var(--teal)">0:24</span> &nbsp;web_fetch(theverge.com/...)</div>
+        <div><span style="color:var(--amber)">0:42</span> &nbsp;Conflict detected</div>
+        <div><span style="color:var(--amber)">0:44</span> &nbsp;Checkpoint surfaced</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="canvas-stats">
+    <div class="canvas-stat"><strong>3</strong> agents</div>
+    <div class="canvas-stat"><strong>4,220</strong> tokens</div>
+    <div class="canvas-stat"><strong>3:22</strong> elapsed</div>
+    <div class="canvas-stat"><strong>$0.06</strong> cost</div>
+  </div>
+
+</div>
+
+</body>
+</html>
