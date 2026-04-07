@@ -26,7 +26,7 @@ export default function SprintPage() {
 
   const router = useRouter();
   const { project } = useProject(projectId);
-  const { sprint, traceEvents, isLoading, isConnected, resolveCheckpoint, sendInput } = useSprint(projectId, sprintId);
+  const { sprint, traceEvents, isLoading, isConnected, resolveCheckpoint, sendInput, refetch } = useSprint(projectId, sprintId);
   const [activeTab, setActiveTab] = useState("dashboard");
 
   const [nextSprintGoal, setNextSprintGoal] = useState("");
@@ -120,9 +120,28 @@ export default function SprintPage() {
       </div>
 
       {isActive && (
-        <div className="px-7">
-          <InputBar onSend={sendInput} disabled={!isConnected} />
-        </div>
+        <>
+          {/* Spacer so content isn't hidden behind the fixed input bar */}
+          <div className="h-24" />
+          <InputBar
+            onSend={sendInput}
+            disabled={!isConnected}
+            isPaused={sprint.status === "awaiting_input"}
+            sprintStatus={sprint.status}
+            onPause={async () => {
+              await api.updateSprint(projectId, sprintId, { status: "awaiting_input" });
+              refetch();
+            }}
+            onResume={async () => {
+              await api.updateSprint(projectId, sprintId, { status: "running" });
+              refetch();
+            }}
+            onCancel={async () => {
+              await api.updateSprint(projectId, sprintId, { status: "cancelled" });
+              refetch();
+            }}
+          />
+        </>
       )}
 
       {!isActive && (
