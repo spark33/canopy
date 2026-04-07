@@ -3,21 +3,47 @@
 import { PlanSidebar } from "./PlanSidebar";
 import { AgentCard } from "./AgentCard";
 import { StatsBar } from "./StatsBar";
-import type { Sprint, Checkpoint } from "@/lib/types";
+import type { Sprint, Checkpoint, Task } from "@/lib/types";
 
 interface SprintDashboardProps {
   sprint: Sprint;
   onResolveCheckpoint: (checkpointId: string, resolution: string, userInput?: string) => void;
 }
 
+const agentGroupOrder = ["researcher", "fact_checker", "synthesizer", "sprint_orchestrator", "project_orchestrator"];
+const agentGroupLabels: Record<string, string> = {
+  researcher: "Research agents",
+  fact_checker: "Fact checking",
+  synthesizer: "Synthesis",
+  sprint_orchestrator: "Orchestrator",
+  project_orchestrator: "Project orchestrator",
+};
+
+function groupTasksByAgent(tasks: Task[]): { agentType: string; tasks: Task[] }[] {
+  const groups: Record<string, Task[]> = {};
+  for (const task of tasks) {
+    const key = task.agent_type;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(task);
+  }
+
+  return agentGroupOrder
+    .filter((type) => groups[type])
+    .map((type) => ({ agentType: type, tasks: groups[type] }))
+    .concat(
+      Object.keys(groups)
+        .filter((type) => !agentGroupOrder.includes(type))
+        .map((type) => ({ agentType: type, tasks: groups[type] }))
+    );
+}
+
 export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboardProps) {
   const steps = sprint.plan || [];
   const pendingCheckpoints = sprint.checkpoints.filter((c) => c.status === "pending");
 
-  // Find the orchestrator reasoning from orchestrator_state
   const reasoning = sprint.orchestrator_state?.accumulated_context as string | undefined;
+  const groups = groupTasksByAgent(sprint.tasks);
 
-  // Map tasks to their checkpoints
   function getCheckpointForTask(taskId: string): Checkpoint | undefined {
     return sprint.checkpoints.find((c) => c.task_id === taskId);
   }
@@ -29,25 +55,41 @@ export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboard
       <div className="flex-1 p-6 overflow-y-auto">
         <StatsBar sprint={sprint} />
 
-        {/* Agent outputs */}
-        <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px] mt-6 mb-3.5">
-          Agent outputs
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
-          {sprint.tasks.map((task) => (
-            <AgentCard
-              key={task.id}
-              task={task}
-              checkpoint={getCheckpointForTask(task.id)}
-              onResolveCheckpoint={onResolveCheckpoint}
-            />
-          ))}
-        </div>
+        {/* Agent groups */}
+        {groups.map(({ agentType, tasks }) => (
+          <div key={agentType}>
+            <div className="flex items-center gap-2 mt-6 mb-3.5">
+              <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px]">
+                {agentGroupLabels[agentType] || agentType}
+              </span>
+              <span className="text-[10px] text-text-tertiary">
+                {tasks.filter(t => t.status === "completed").length}/{tasks.length} done
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {tasks.map((task) => (
+                <AgentCard
+                  key={task.id}
+                  task={task}
+                  checkpoint={getCheckpointForTask(task.id)}
+                  onResolveCheckpoint={onResolveCheckpoint}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Empty state */}
+        {sprint.tasks.length === 0 && (
+          <div className="mt-6 text-[13px] text-text-tertiary italic">
+            No agents have been spawned yet. The orchestrator is planning...
+          </div>
+        )}
 
         {/* Standalone checkpoints (not tied to a task) */}
         {pendingCheckpoints.filter((c) => !c.task_id).length > 0 && (
           <>
-            <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px] mt-4 mb-3.5">
+            <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px] mt-6 mb-3.5">
               Pending decisions
             </div>
             {pendingCheckpoints.filter((c) => !c.task_id).map((cp) => (
@@ -76,7 +118,7 @@ export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboard
 
         {/* Orchestrator section */}
         {sprint.orchestrator_state && (
-          <div className="bg-surface border border-border rounded-[14px] p-5 mt-2">
+          <div className="bg-surface border border-border rounded-[14px] p-5 mt-6">
             <div className="flex items-center gap-2 mb-2.5">
               <div className="w-2 h-2 rounded-full bg-accent" />
               <span className="text-[13px] font-medium text-accent-text">Orchestrator</span>
