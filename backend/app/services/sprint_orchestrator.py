@@ -56,7 +56,9 @@ async def run_sprint(sprint_id: str):
                 if sprint.status in ("completed", "failed", "cancelled"):
                     break
 
-                result = await db.execute(select(Project).where(Project.id == sprint.project_id))
+                result = await db.execute(
+                    select(Project).options(selectinload(Project.artifact)).where(Project.id == sprint.project_id)
+                )
                 project = result.scalar_one()
 
             await broadcast(sprint_id, "orchestrator_thinking", {
