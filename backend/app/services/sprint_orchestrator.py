@@ -105,7 +105,50 @@ async def run_sprint(sprint_id: str):
             action = decision.get("action")
 
             if action == "delegate":
-                await _handle_delegate(sprint_id, sprint, decision)
+                parallel_group = decision.get("parallel_group")
+                if parallel_group:
+                    # Collect all delegates for this parallel group
+                    parallel_decisions = [decision]
+                    next_decision = None
+                    # Keep asking the LLM for more decisions in the same group
+                    while True:
+                        cycle += 1
+                        context = await _build_context(sprint, project)
+                        try:
+                            next_decision = await _call_orchestrator_llm(context)
+                        except LLMError:
+                            break
+                        if next_decision.get("action") != "delegate" or next_decision.get("parallel_group") != parallel_group:
+                            # Not part of this parallel group — save for next iteration
+                            break
+                        parallel_decisions.append(next_decision)
+
+                    # Create all tasks, then run them concurrently
+                    task_infos = []
+                    for d in parallel_decisions:
+                        task_id = await _create_delegate_task(sprint_id, d)
+                        task_infos.append((task_id, d))
+
+                    await asyncio.gather(*[
+                        _run_delegate_task(sprint_id, tid, d)
+                        for tid, d in task_infos
+                    ])
+
+                    # If we got a non-delegate decision above, handle it now
+                    if next_decision and next_decision.get("action") != "delegate":
+                        decision = next_decision
+                        action = decision.get("action")
+                        if action == "ask_user":
+                            await _handle_ask_user(sprint_id, decision)
+                        elif action == "synthesize":
+                            await _handle_synthesize(sprint_id, sprint, project, decision)
+                        elif action == "replan":
+                            await _handle_replan(sprint_id, decision)
+                        elif action == "complete":
+                            await _handle_complete(sprint_id, sprint, project, decision)
+                            return
+                else:
+                    await _handle_delegate(sprint_id, sprint, decision)
 
             elif action == "ask_user":
                 await _handle_ask_user(sprint_id, decision)
@@ -308,16 +351,12 @@ def _force_checkpoint(decision: dict) -> dict:
     }
 
 
-async def _handle_delegate(sprint_id: str, sprint: Sprint, decision: dict):
-    """Handle a delegate action from the orchestrator."""
-    from app.services.agent_runner import run_agent
-
+async def _create_delegate_task(sprint_id: str, decision: dict) -> str:
+    """Create a task record and update the plan. Returns the task_id."""
     agent_type = decision.get("agent_type", "researcher")
     task_title = decision.get("task_title", "Untitled task")
-    task_prompt = decision.get("task_prompt", "")
     parallel_group = decision.get("parallel_group")
 
-    # Create the task
     async with async_session() as db:
         task = Task(
             sprint_id=sprint_id,
@@ -328,7 +367,6 @@ async def _handle_delegate(sprint_id: str, sprint: Sprint, decision: dict):
         db.add(task)
         await db.flush()
 
-        # Update plan
         result = await db.execute(select(Sprint).where(Sprint.id == sprint_id))
         s = result.scalar_one()
         plan = s.plan or []
@@ -347,11 +385,18 @@ async def _handle_delegate(sprint_id: str, sprint: Sprint, decision: dict):
         await db.commit()
 
     await broadcast(sprint_id, "plan_updated", {"plan": plan})
+    return task_id
 
-    # Run the agent
+
+async def _run_delegate_task(sprint_id: str, task_id: str, decision: dict):
+    """Run an agent task and update plan status on completion."""
+    from app.services.agent_runner import run_agent
+
+    agent_type = decision.get("agent_type", "researcher")
+    task_prompt = decision.get("task_prompt", "")
+
     await run_agent(sprint_id, task_id, agent_type, task_prompt)
 
-    # Update plan step status
     async with async_session() as db:
         result = await db.execute(select(Sprint).where(Sprint.id == sprint_id))
         s = result.scalar_one()
@@ -361,6 +406,14 @@ async def _handle_delegate(sprint_id: str, sprint: Sprint, decision: dict):
                 step["status"] = "completed"
         s.plan = plan
         await db.commit()
+
+    await broadcast(sprint_id, "plan_updated", {"plan": plan})
+
+
+async def _handle_delegate(sprint_id: str, sprint: Sprint, decision: dict):
+    """Handle a single sequential delegate action."""
+    task_id = await _create_delegate_task(sprint_id, decision)
+    await _run_delegate_task(sprint_id, task_id, decision)
 
     await broadcast(sprint_id, "plan_updated", {"plan": plan})
 
