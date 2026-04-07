@@ -3,21 +3,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
-import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { SprintDashboard } from "@/components/sprint/SprintDashboard";
-import { SprintOutput } from "@/components/sprint/SprintOutput";
-import { SprintTrace } from "@/components/sprint/SprintTrace";
 import { InputBar } from "@/components/sprint/InputBar";
 import { useSprint } from "@/hooks/useSprint";
 import { useProject } from "@/hooks/useProject";
 import { api } from "@/lib/api";
-
-const TABS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "output", label: "Output" },
-  { id: "trace", label: "Trace" },
-];
 
 export default function SprintPage() {
   const params = useParams();
@@ -27,20 +18,12 @@ export default function SprintPage() {
   const router = useRouter();
   const { project, refetch: refetchProject } = useProject(projectId);
   const { sprint, traceEvents, isLoading, isConnected, resolveCheckpoint, sendInput, refetch } = useSprint(projectId, sprintId, refetchProject);
-  const [activeTab, setActiveTab] = useState("dashboard");
 
   const [nextSprintGoal, setNextSprintGoal] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState<{ goal: string; rationale: string } | null>(null);
   const [creatingSprint, setCreatingSprint] = useState(false);
   const [showNextSprint, setShowNextSprint] = useState(false);
-
-  // Auto-switch to dashboard when checkpoint surfaced
-  useEffect(() => {
-    if (sprint?.status === "awaiting_input") {
-      setActiveTab("dashboard");
-    }
-  }, [sprint?.status]);
 
   async function handleSuggest() {
     setSuggesting(true);
@@ -92,36 +75,17 @@ export default function SprintPage() {
         autonomyMode={sprint.autonomy_mode}
       />
 
-      <div className="px-7 pt-3">
-        <Tabs
-          tabs={TABS.map(t => ({
-            ...t,
-            count: t.id === "trace" ? traceEvents.length : undefined,
-          }))}
-          value={activeTab}
-          onChange={setActiveTab}
-        />
-      </div>
-
       <div className="flex-1 overflow-hidden">
-        {activeTab === "dashboard" && (
-          <SprintDashboard sprint={sprint} onResolveCheckpoint={resolveCheckpoint} />
-        )}
-        {activeTab === "output" && (
-          <SprintOutput
-            artifact={project?.artifact || null}
-            checkpoints={sprint.checkpoints}
-            onResolveCheckpoint={resolveCheckpoint}
-          />
-        )}
-        {activeTab === "trace" && (
-          <SprintTrace events={traceEvents} />
-        )}
+        <SprintDashboard
+          sprint={sprint}
+          traceEvents={traceEvents}
+          artifact={project?.artifact || null}
+          onResolveCheckpoint={resolveCheckpoint}
+        />
       </div>
 
       {isActive && (
         <>
-          {/* Spacer so content isn't hidden behind the fixed input bar */}
           <div className="h-24" />
           <InputBar
             onSend={sendInput}

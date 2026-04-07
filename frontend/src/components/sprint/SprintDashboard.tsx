@@ -1,12 +1,16 @@
 "use client";
 
-import { PlanSidebar } from "./PlanSidebar";
+import { useState } from "react";
+import { ActivityFeed } from "./ActivityFeed";
 import { AgentCard } from "./AgentCard";
 import { StatsBar } from "./StatsBar";
-import type { Sprint, Checkpoint, Task } from "@/lib/types";
+import { ArtifactCard, ArtifactSidebar } from "./ArtifactPanel";
+import type { Sprint, Checkpoint, Task, TraceEvent, Artifact } from "@/lib/types";
 
 interface SprintDashboardProps {
   sprint: Sprint;
+  traceEvents: TraceEvent[];
+  artifact: Artifact | null;
   onResolveCheckpoint: (checkpointId: string, resolution: string, userInput?: string) => void;
 }
 
@@ -26,7 +30,6 @@ function groupTasksByAgent(tasks: Task[]): { agentType: string; tasks: Task[] }[
     if (!groups[key]) groups[key] = [];
     groups[key].push(task);
   }
-
   return agentGroupOrder
     .filter((type) => groups[type])
     .map((type) => ({ agentType: type, tasks: groups[type] }))
@@ -37,12 +40,11 @@ function groupTasksByAgent(tasks: Task[]): { agentType: string; tasks: Task[] }[
     );
 }
 
-export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboardProps) {
+export function SprintDashboard({ sprint, traceEvents, artifact, onResolveCheckpoint }: SprintDashboardProps) {
   const steps = sprint.plan || [];
   const pendingCheckpoints = sprint.checkpoints.filter((c) => c.status === "pending");
-
-  const reasoning = sprint.orchestrator_state?.accumulated_context as string | undefined;
   const groups = groupTasksByAgent(sprint.tasks);
+  const [artifactOpen, setArtifactOpen] = useState(false);
 
   function getCheckpointForTask(taskId: string): Checkpoint | undefined {
     return sprint.checkpoints.find((c) => c.task_id === taskId);
@@ -50,8 +52,10 @@ export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboard
 
   return (
     <div className="flex h-full">
-      <PlanSidebar steps={steps} orchestratorReasoning={reasoning} />
+      {/* Left: Activity feed */}
+      <ActivityFeed steps={steps} events={traceEvents} />
 
+      {/* Center: Main workspace */}
       <div className="flex-1 p-6 overflow-y-auto">
         <StatsBar sprint={sprint} />
 
@@ -86,7 +90,15 @@ export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboard
           </div>
         )}
 
-        {/* Standalone checkpoints (not tied to a task) */}
+        {/* Artifact card */}
+        <div className="mt-6 mb-3.5">
+          <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px] mb-3">
+            Output
+          </div>
+          <ArtifactCard artifact={artifact} onClick={() => setArtifactOpen(true)} />
+        </div>
+
+        {/* Standalone checkpoints */}
         {pendingCheckpoints.filter((c) => !c.task_id).length > 0 && (
           <>
             <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px] mt-6 mb-3.5">
@@ -116,7 +128,7 @@ export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboard
           </>
         )}
 
-        {/* Orchestrator section */}
+        {/* Orchestrator state */}
         {sprint.orchestrator_state && (
           <div className="bg-surface border border-border rounded-[14px] p-5 mt-6">
             <div className="flex items-center gap-2 mb-2.5">
@@ -130,6 +142,11 @@ export function SprintDashboard({ sprint, onResolveCheckpoint }: SprintDashboard
           </div>
         )}
       </div>
+
+      {/* Right: Artifact sidebar (opens on click) */}
+      {artifactOpen && artifact && artifact.content && (
+        <ArtifactSidebar artifact={artifact} onClose={() => setArtifactOpen(false)} />
+      )}
     </div>
   );
 }
