@@ -17,14 +17,23 @@ export function formatDuration(ms: number): string {
   return `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
-export function formatElapsed(startedAt: string): string {
-  const start = new Date(startedAt).getTime();
-  const now = Date.now();
-  return formatDuration(now - start);
+export function formatElapsed(startedAt: string, completedAt?: string | null): string {
+  const start = parseUTC(startedAt);
+  const end = completedAt ? parseUTC(completedAt) : Date.now();
+  return formatDuration(end - start);
+}
+
+function parseUTC(dateStr: string): number {
+  // Backend returns timestamps without timezone suffix.
+  // Append Z if missing so JS parses them as UTC.
+  if (!dateStr.endsWith("Z") && !dateStr.includes("+")) {
+    dateStr = dateStr + "Z";
+  }
+  return new Date(dateStr).getTime();
 }
 
 export function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
+  const date = new Date(parseUTC(dateStr));
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);

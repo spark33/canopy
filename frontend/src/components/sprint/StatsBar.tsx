@@ -38,7 +38,7 @@ export function StatsBar({ sprint }: StatsBarProps) {
       <div className="bg-surface border border-border rounded-lg px-4 py-3.5">
         <div className="text-[11px] text-text-tertiary font-medium uppercase tracking-[0.3px]">Elapsed</div>
         <div className="text-[22px] font-medium mt-1">
-          {sprint.started_at ? formatElapsed(sprint.started_at) : "--"}
+          {sprint.started_at ? formatElapsed(sprint.started_at, sprint.completed_at) : "--"}
         </div>
         <div className="text-[11px] text-text-tertiary mt-0.5">
           {sprint.status === "completed" ? "Done" : sprint.status === "running" ? "In progress" : sprint.status}
