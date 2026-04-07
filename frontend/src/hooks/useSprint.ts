@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import { useWebSocket } from "./useWebSocket";
 import type { Sprint, TraceEvent, Checkpoint, Task } from "@/lib/types";
@@ -46,8 +46,10 @@ export function useSprint(projectId: string, sprintId: string, onArtifactUpdated
   }, [fetchSprint]);
 
   // Process WebSocket events
+  const lastProcessedRef = useRef<object | null>(null);
   useEffect(() => {
-    if (!lastEvent || !sprint) return;
+    if (!lastEvent || lastEvent === lastProcessedRef.current) return;
+    lastProcessedRef.current = lastEvent;
 
     const { type, data } = lastEvent;
 
@@ -190,7 +192,7 @@ export function useSprint(projectId: string, sprintId: string, onArtifactUpdated
         }, ...prev]);
         break;
     }
-  }, [lastEvent, sprint, sprintId, fetchSprint]);
+  }, [lastEvent, sprintId, fetchSprint, onArtifactUpdated]);
 
   const resolveCheckpoint = useCallback(async (checkpointId: string, resolution: string, userInput?: string) => {
     await api.resolveCheckpoint(checkpointId, { resolution, user_input: userInput });
