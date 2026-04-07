@@ -68,17 +68,18 @@ async def run_sprint(sprint_id: str):
 
             # Build context and call LLM
             context = await _build_context(sprint, project)
-            decision = await _call_orchestrator_llm(context)
-
-            if not decision:
-                log.error("Failed to get orchestrator decision", sprint_id=sprint_id)
+            try:
+                decision = await _call_orchestrator_llm(context)
+            except LLMError as e:
+                error_msg = str(e)
+                log.error("Orchestrator LLM failed", sprint_id=sprint_id, error=error_msg)
                 async with async_session() as db:
                     result = await db.execute(select(Sprint).where(Sprint.id == sprint_id))
                     s = result.scalar_one()
                     s.status = "failed"
                     await db.commit()
-                await broadcast(sprint_id, "error", {"message": "Orchestrator failed to produce a decision. Check that ANTHROPIC_API_KEY is set correctly.", "recoverable": False})
-                await log_event(sprint_id=sprint_id, event_type="sprint_failed", source_type="system", payload={"error": "LLM call returned no decision"})
+                await broadcast(sprint_id, "error", {"message": f"Orchestrator failed: {error_msg}", "recoverable": False})
+                await log_event(sprint_id=sprint_id, event_type="sprint_failed", source_type="system", payload={"error": error_msg})
                 return
 
             await log_event(
@@ -205,8 +206,13 @@ async def _build_context(sprint: Sprint, project: Project) -> str:
     return "\n".join(parts)
 
 
-async def _call_orchestrator_llm(context: str) -> dict | None:
-    """Call Claude with the sprint orchestrator prompt."""
+class LLMError(Exception):
+    """Wraps the real error from the LLM call so callers can see the message."""
+    pass
+
+
+async def _call_orchestrator_llm(context: str) -> dict:
+    """Call Claude with the sprint orchestrator prompt. Raises LLMError on failure."""
     from pathlib import Path
 
     prompt_file = Path(__file__).parent.parent / "prompts" / "sprint_orchestrator.txt"
@@ -214,6 +220,7 @@ async def _call_orchestrator_llm(context: str) -> dict | None:
 
     client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
+    last_error = None
     for attempt in range(2):
         try:
             response = await client.messages.create(
@@ -242,11 +249,12 @@ async def _call_orchestrator_llm(context: str) -> dict | None:
             return json.loads(text)
 
         except Exception as e:
+            last_error = e
             log.error("Orchestrator LLM call failed", attempt=attempt, error=str(e), error_type=type(e).__name__)
             if attempt == 1:
-                return None
+                raise LLMError(f"{type(e).__name__}: {e}") from e
 
-    return None
+    raise LLMError(f"{type(last_error).__name__}: {last_error}")
 
 
 def _force_checkpoint(decision: dict) -> dict:
