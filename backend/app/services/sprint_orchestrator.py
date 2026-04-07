@@ -214,6 +214,7 @@ class LLMError(Exception):
 async def _call_orchestrator_llm(context: str) -> dict:
     """Call Claude with the sprint orchestrator prompt. Raises LLMError on failure."""
     from pathlib import Path
+    import re
 
     prompt_file = Path(__file__).parent.parent / "prompts" / "sprint_orchestrator.txt"
     system_prompt = prompt_file.read_text()
@@ -236,18 +237,19 @@ async def _call_orchestrator_llm(context: str) -> dict:
                 if block.type == "text":
                     text += block.text
 
-            # Extract JSON from response
-            text = text.strip()
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.startswith("```"):
-                text = text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
+            if not text.strip():
+                raise LLMError(f"Empty response from LLM (stop_reason: {response.stop_reason})")
 
-            return json.loads(text)
+            parsed = _extract_json(text)
+            if parsed is None:
+                raise json.JSONDecodeError(
+                    f"No valid JSON found in response. Raw text: {text[:500]}",
+                    text, 0,
+                )
+            return parsed
 
+        except LLMError:
+            raise
         except Exception as e:
             last_error = e
             log.error("Orchestrator LLM call failed", attempt=attempt, error=str(e), error_type=type(e).__name__)
@@ -255,6 +257,37 @@ async def _call_orchestrator_llm(context: str) -> dict:
                 raise LLMError(f"{type(e).__name__}: {e}") from e
 
     raise LLMError(f"{type(last_error).__name__}: {last_error}")
+
+
+def _extract_json(text: str) -> dict | None:
+    """Extract JSON from LLM response text, handling various wrapping formats."""
+    import re
+
+    text = text.strip()
+
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try extracting from ```json ... ``` or ``` ... ```
+    fenced = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # Try finding first { ... } block
+    brace_match = re.search(r"\{.*\}", text, re.DOTALL)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    return None
 
 
 def _force_checkpoint(decision: dict) -> dict:
