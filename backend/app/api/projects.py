@@ -85,6 +85,29 @@ async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
 
+@router.post("/projects/{project_id}/suggest-sprint")
+async def suggest_sprint(project_id: str, db: AsyncSession = Depends(get_db)):
+    from app.services.project_orchestrator import suggest_next_sprint
+
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+    suggestion = await suggest_next_sprint(project_id)
+    if suggestion:
+        return suggestion
+    # Fallback if LLM call fails
+    return {
+        "suggested_sprint": {
+            "goal": "",
+            "rationale": "Could not generate suggestion. Enter a goal manually.",
+            "expected_tasks": [],
+            "estimated_agents": 0,
+        }
+    }
+
+
 @router.get("/projects/{project_id}/artifact", response_model=ArtifactBrief | None)
 async def get_artifact(project_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Artifact).where(Artifact.project_id == project_id))

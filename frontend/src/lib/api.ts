@@ -36,6 +36,10 @@ export const api = {
   updateProject: (id: string, data: Record<string, unknown>) =>
     request<import("./types").Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+  suggestSprint: (projectId: string) =>
+    request<{ suggested_sprint: { goal: string; rationale: string; expected_tasks: string[]; estimated_agents: number } }>(
+      `/projects/${projectId}/suggest-sprint`, { method: "POST" }
+    ),
 
   // Sprints
   createSprint: (projectId: string, data: { goal: string; autonomy_mode?: string }) =>
