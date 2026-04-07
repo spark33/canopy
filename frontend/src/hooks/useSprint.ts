@@ -52,9 +52,17 @@ export function useSprint(projectId: string, sprintId: string, onArtifactUpdated
     const { type, data } = lastEvent;
 
     switch (type) {
-      case "sprint_status":
-        setSprint((prev) => prev ? { ...prev, status: data.status as Sprint["status"], plan: (data.plan as Sprint["plan"]) || prev.plan } : prev);
+      case "sprint_status": {
+        const newStatus = data.status as Sprint["status"];
+        const isTerminal = ["completed", "failed", "cancelled"].includes(newStatus);
+        setSprint((prev) => prev ? {
+          ...prev,
+          status: newStatus,
+          plan: (data.plan as Sprint["plan"]) || prev.plan,
+          completed_at: isTerminal && !prev.completed_at ? new Date().toISOString() : prev.completed_at,
+        } : prev);
         break;
+      }
 
       case "task_started":
         setSprint((prev) => {
@@ -148,8 +156,23 @@ export function useSprint(projectId: string, sprintId: string, onArtifactUpdated
         break;
 
       case "sprint_completed":
-        setSprint((prev) => prev ? { ...prev, status: "completed" } : prev);
+        setSprint((prev) => prev ? { ...prev, status: "completed", completed_at: new Date().toISOString() } : prev);
         onArtifactUpdated?.();
+        break;
+
+      case "error":
+        setSprint((prev) => prev ? { ...prev, status: "failed", completed_at: prev.completed_at || new Date().toISOString() } : prev);
+        // Add error to trace for visibility
+        setTraceEvents((prev) => [{
+          id: Date.now().toString(),
+          sprint_id: sprintId,
+          task_id: null,
+          event_type: "error",
+          source_type: "system",
+          payload: data,
+          token_count: null,
+          created_at: new Date().toISOString(),
+        }, ...prev]);
         break;
 
       case "orchestrator_decision":
