@@ -25,8 +25,8 @@ export default function SprintPage() {
   const sprintId = params.sprintId as string;
 
   const router = useRouter();
-  const { project } = useProject(projectId);
-  const { sprint, traceEvents, isLoading, isConnected, resolveCheckpoint, sendInput, refetch } = useSprint(projectId, sprintId);
+  const { project, refetch: refetchProject } = useProject(projectId);
+  const { sprint, traceEvents, isLoading, isConnected, resolveCheckpoint, sendInput, refetch } = useSprint(projectId, sprintId, refetchProject);
   const [activeTab, setActiveTab] = useState("dashboard");
 
   const [nextSprintGoal, setNextSprintGoal] = useState("");

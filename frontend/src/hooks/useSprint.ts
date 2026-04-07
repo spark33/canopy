@@ -16,7 +16,7 @@ interface UseSprintReturn {
   refetch: () => void;
 }
 
-export function useSprint(projectId: string, sprintId: string): UseSprintReturn {
+export function useSprint(projectId: string, sprintId: string, onArtifactUpdated?: () => void): UseSprintReturn {
   const [sprint, setSprint] = useState<Sprint | null>(null);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,12 +143,13 @@ export function useSprint(projectId: string, sprintId: string): UseSprintReturn 
         break;
 
       case "artifact_updated":
-        // Trigger a refetch to get the full artifact
         fetchSprint();
+        onArtifactUpdated?.();
         break;
 
       case "sprint_completed":
         setSprint((prev) => prev ? { ...prev, status: "completed" } : prev);
+        onArtifactUpdated?.();
         break;
 
       case "orchestrator_decision":
