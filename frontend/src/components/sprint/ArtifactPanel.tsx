@@ -70,7 +70,14 @@ interface ArtifactSidebarProps {
 
 export function ArtifactSidebar({ artifact, onClose }: ArtifactSidebarProps) {
   return (
-    <div className="w-[420px] border-l border-border bg-surface flex flex-col flex-shrink-0 overflow-hidden">
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/5 z-30"
+        onClick={onClose}
+      />
+      {/* Sidebar */}
+      <div className="fixed top-0 right-0 bottom-0 w-[460px] border-l border-border bg-surface flex flex-col z-40 shadow-[-4px_0_24px_rgba(0,0,0,0.06)]">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.5px]">
@@ -102,6 +109,7 @@ export function ArtifactSidebar({ artifact, onClose }: ArtifactSidebarProps) {
         />
       </div>
     </div>
+    </>
   );
 }
 

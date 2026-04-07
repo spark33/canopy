@@ -51,6 +51,7 @@ export function SprintDashboard({ sprint, traceEvents, artifact, onResolveCheckp
   }
 
   return (
+    <>
     <div className="flex h-full">
       {/* Left: Activity feed */}
       <ActivityFeed steps={steps} events={traceEvents} />
@@ -143,10 +144,12 @@ export function SprintDashboard({ sprint, traceEvents, artifact, onResolveCheckp
         )}
       </div>
 
-      {/* Right: Artifact sidebar (opens on click) */}
-      {artifactOpen && artifact && artifact.content && (
-        <ArtifactSidebar artifact={artifact} onClose={() => setArtifactOpen(false)} />
-      )}
     </div>
+
+    {/* Artifact sidebar — rendered as fixed overlay, outside the flex container */}
+    {artifactOpen && artifact && artifact.content && (
+      <ArtifactSidebar artifact={artifact} onClose={() => setArtifactOpen(false)} />
+    )}
+    </>
   );
 }
