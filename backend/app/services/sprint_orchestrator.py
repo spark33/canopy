@@ -72,7 +72,14 @@ async def run_sprint(sprint_id: str):
 
             if not decision:
                 log.error("Failed to get orchestrator decision", sprint_id=sprint_id)
-                break
+                async with async_session() as db:
+                    result = await db.execute(select(Sprint).where(Sprint.id == sprint_id))
+                    s = result.scalar_one()
+                    s.status = "failed"
+                    await db.commit()
+                await broadcast(sprint_id, "error", {"message": "Orchestrator failed to produce a decision. Check that ANTHROPIC_API_KEY is set correctly.", "recoverable": False})
+                await log_event(sprint_id=sprint_id, event_type="sprint_failed", source_type="system", payload={"error": "LLM call returned no decision"})
+                return
 
             await log_event(
                 sprint_id=sprint_id,
@@ -123,6 +130,13 @@ async def run_sprint(sprint_id: str):
                 await db.commit()
 
         log.warning("Sprint orchestrator hit max cycles", sprint_id=sprint_id, cycles=max_cycles)
+        async with async_session() as db:
+            result = await db.execute(select(Sprint).where(Sprint.id == sprint_id))
+            s = result.scalar_one()
+            if s.status not in ("completed", "failed", "cancelled"):
+                s.status = "failed"
+                await db.commit()
+        await broadcast(sprint_id, "error", {"message": "Sprint reached maximum cycle limit", "recoverable": False})
 
     except Exception as e:
         log.error("Sprint orchestrator failed", sprint_id=sprint_id, error=str(e))
@@ -227,8 +241,8 @@ async def _call_orchestrator_llm(context: str) -> dict | None:
 
             return json.loads(text)
 
-        except (json.JSONDecodeError, Exception) as e:
-            log.warning("Orchestrator LLM parse failed", attempt=attempt, error=str(e))
+        except Exception as e:
+            log.error("Orchestrator LLM call failed", attempt=attempt, error=str(e), error_type=type(e).__name__)
             if attempt == 1:
                 return None
 
